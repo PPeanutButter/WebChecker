@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">网页更新监听</string>
+    <string name="a_href"><![CDATA[标签内元素值实例:<a href="是我"/>]]></string>
+    <string name="a_a"><![CDATA[标签文本实例:<a …>是我</a>]]></string>
+</resources>
