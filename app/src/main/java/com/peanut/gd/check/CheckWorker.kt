@@ -1,74 +1,87 @@
 package com.peanut.gd.check
 
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ContentValues
 import android.content.Context
-import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.peanut.gd.check.AddInFuns.insertTo
 import org.jsoup.Jsoup
+import java.lang.StringBuilder
 
 class CheckWorker(private val context: Context, workerParams: WorkerParameters) :Worker(context, workerParams) {
     override fun doWork(): Result {
-        val sets = SettingManager.getValue("jobs",defaultValue = emptySet<String>())
-        if (sets.isEmpty())return Result.success()
-        for (name in sets){
-            try {
-                val messages = StringBuilder()
-                val url = SettingManager.getValue(name + "url", "")
-                val css = SettingManager.getValue(name + "css", "")
-                val attrKey = SettingManager.getValue(name + "attrKey", "")
-                val attr = SettingManager.getValue(name + "attr", false)
+        try {
+            val cursor =
+                Settings.dataBase.rawQuery("select * from tasks,task where tasks.id=task.id")
+            while (cursor.moveToNext()) {
+                val id = cursor.getInt(cursor.getColumnIndex("id"))
+                val name = cursor.getString(cursor.getColumnIndex("name"))
+                val url = cursor.getString(cursor.getColumnIndex("url"))
+                val css = cursor.getString(cursor.getColumnIndex("css"))
+                val attr = cursor.getString(cursor.getColumnIndex("attr"))
                 val doc = Jsoup.connect(url).get()
                 val list = doc.select(css)
+                var mapOld = emptySet<String>()
+                try {
+                    mapOld = mapOld.plus(
+                        Settings.dataBase.rawQuery("select item from lists where id=$id")
+                            .apply { this.moveToFirst() }.getString(0).split("@#_#@")
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                //填充list
                 var mapNew = emptySet<String>()
-                val mapOld = SettingManager.getValue(
-                    key = name + "list",
-                    defaultValue = emptySet<String>()
-                )
                 for (j in list.indices) {
-                    mapNew = if (attr)
-                        mapNew.plus(list.elementAt(j).attr(attrKey))
+                    mapNew = if (attr != null)
+                        mapNew.plus(list.elementAt(j).attr(attr))
                     else
                         mapNew.plus(list.elementAt(j).text())
                 }
                 val mapDiff = mapNew.minus(mapOld)
+                val messages = StringBuilder()
                 for (j in mapDiff.indices) {
                     messages.append(mapDiff.elementAt(j))
                     if (j != mapDiff.size - 1)
                         messages.append("\n")
                     else sendSimpleNotification(title = name, message = messages.toString())
                 }
-                SettingManager.setValue(key = name + "list", value = mapNew)
-                SettingManager.setValue(name + "Time", System.currentTimeMillis().toString())
-            }catch (e:Exception) {
-                e.printStackTrace()
+                ContentValues().apply {
+                    Settings.dataBase.execSQL("delete from lists where id=$id", "更新列表")
+                    this.put("id", id)
+                    this.put("item", mapNew.joinToString("@#_#@"))
+                    this.put("timeMillis", System.currentTimeMillis())
+                }.insertTo("lists")
             }
+            return Result.success()
+        } catch (e: Exception) {
+            return Result.failure()
         }
-        return Result.success()
     }
 
     private fun sendSimpleNotification(title: String, message: String) {
-        val notificationManager = context.getSystemService(AppCompatActivity.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.createNotificationChannel(
-                NotificationChannel(
+        val notificationManager =
+            context.getSystemService(Activity.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
                 "AppTestNotificationId",
-                "网页监听通知",
+                "爷爷,你追的剧更新了~",
                 NotificationManager.IMPORTANCE_HIGH
             )
-            )
-        }
+        )
         val builder = NotificationCompat.Builder(context, "AppTestNotificationId")
             .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                .bigText(message))
+                    .bigText(message)
+            )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-        notificationManager.notify((Math.random()*100000).toInt(), builder.build())
+        notificationManager.notify((Math.random() * 100000).toInt(), builder.build())
     }
 }

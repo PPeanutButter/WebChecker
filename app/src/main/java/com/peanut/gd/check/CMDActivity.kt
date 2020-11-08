@@ -1,76 +1,66 @@
-package com.peanut.gd.zdjkxxbz
+package com.peanut.gd.check
 
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.inputmethod.EditorInfo
 import android.widget.TextView
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequest
-import androidx.work.WorkManager
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.TimeUnit
-import kotlinx.android.synthetic.main.activity_main.*
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import kotlinx.android.synthetic.main.activity_cmd.*
 
-class MainActivity : Activity() {
+open class CMDActivity : Activity(){
+    private var onTextInputListener:TextInputListener?=null
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        li.removeAllViews()
-        SettingManager.init(this)
-        Settings.init(this)
-        val workManager = WorkManager.getInstance(this)
-        if (SettingManager.getValue("UUID","") == "") {
-            val constraints = Constraints.Builder()
-                    .setRequiresBatteryNotLow(true)
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-            val checkRequest = PeriodicWorkRequest.Builder(AutoPostWorker::class.java, 24L, TimeUnit.HOURS)
-                    .setConstraints(constraints)
-                    .build()
-            workManager.enqueue(checkRequest)
-            print("Services:" + checkRequest.id.toString() + " starting", Color.RED)
-            SettingManager.setValue("UUID", checkRequest.id.toString())
-        } else print("Services:" + SettingManager.getValue("UUID","NULL") + " are running", Color.GREEN)
-        print("Cookie: JSESSIONID=374fc1c5-b379-4ae3-a5fe-5dfafd653584", Color.GREEN)
-        print("requestBody:\n"+"body.json".readText())
-        print("=================logs=================",Color.GREEN)
-        val rowSet = Settings.dataBase.rawQuery("select startTime,state,data from logs order by startTime desc")
-        var i = 0
-        while (rowSet.moveToNext()){
-            val color = if (rowSet.getString(1).toBoolean()) Color.GREEN else Color.RED
-            print("#${rowSet.count - i}")
-            print("提交时间:"+SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA).format(Date(rowSet.getLong(0))),color)
-            print("提交结果:"+rowSet.getString(2),color)
-            i++
-        }
-        li.setOnLongClickListener {
-            workManager.cancelAllWork()
-            SettingManager.setValue("UUID", "")
-            print("clear work success!", Color.RED)
-            true
+        setContentView(R.layout.activity_cmd)
+        editTextTextMultiLine.requestFocus()
+        editTextTextMultiLine.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                onTextInputListener?.onInput(editTextTextMultiLine.text.toString())
+                editTextTextMultiLine.text.clear()
+                return@setOnEditorActionListener true
+            }
+            return@setOnEditorActionListener false
         }
     }
 
-    private fun print(a: String) {
-        val b = TextView(this)
-        b.text = a
-        li.addView(b)
+    protected fun CMDActivity.printV(a: String) = print(a, Color.WHITE)
+    protected fun CMDActivity.printI(a: String) = print(a, Color.GREEN)
+    protected fun CMDActivity.printE(a: String) = print(a, Color.RED)
+    protected fun CMDActivity.printW(a: String) = print(a, Color.YELLOW)
+    protected fun CMDActivity.printD(a: String) = print(a, Color.CYAN)
+
+    protected fun registerInputListener(func: (String) -> Unit){
+        this.onTextInputListener = object :TextInputListener{
+            override fun onInput(s: String) {
+                func.invoke(s)
+            }
+        }
     }
 
     private fun print(a: String, c: Int) {
-        val b = TextView(this)
-        b.text = a
-        b.setTextColor(c)
-        li.addView(b)
+        li.addView(TextView(this).apply {
+            this.text = a
+            this.textSize = 12f
+            this.setTextColor(c)
+            this.setTextIsSelectable(true)
+            this.typeface = Typeface.createFromAsset(this@CMDActivity.assets,"ubuntu_mono.ttf")
+        }, li.childCount - 1)
     }
 
-    private fun String.readText():String{
-        return BufferedReader(InputStreamReader(this@MainActivity.resources.assets.open(this))).readText()
+    fun String.toFixedLengthString(l:Int?):String{
+        if (l == null)
+            return this
+        return if (this.length>l)
+            this.substring(0,l-3)+"..."
+        else {
+            this+" ".repeat(l-this.length)
+        }
     }
+}
+
+interface TextInputListener{
+    fun onInput(s: String)
 }

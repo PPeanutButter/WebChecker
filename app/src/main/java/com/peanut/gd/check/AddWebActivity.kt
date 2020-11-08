@@ -1,20 +1,23 @@
 package com.peanut.gd.check
 
+import android.app.Activity
+import android.content.ContentValues
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.View
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import com.peanut.gd.check.AddInFuns.MD5
+import com.peanut.gd.check.AddInFuns.insertTo
 import kotlinx.android.synthetic.main.activity_add_web.*
 import org.jsoup.Jsoup
 
-class AddWebActivity : AppCompatActivity() {
+class AddWebActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        supportActionBar?.title = "添加网页"
+        actionBar?.title = "添加网页"
         setContentView(R.layout.activity_add_web)
     }
 
@@ -75,14 +78,21 @@ class AddWebActivity : AppCompatActivity() {
     fun add(view: View) {
         val url = input1.editableText.toString()
         val css = input2.editableText.toString()
-        val attr = checkBox.isChecked
         val attrKey = editText3.editableText.toString()
         val name = editText4.editableText.toString()
-        SettingManager.setValue("jobs",SettingManager.getValue("jobs", emptySet<String>()).plus(name))
-        SettingManager.setValue(name+"url",url)
-        SettingManager.setValue(name+"css",css)
-        SettingManager.setValue(name+"attr",attr)
-        SettingManager.setValue(name+"attrKey",attrKey)
+        val md5 = (url+name+css).MD5()
+        val tasks = ContentValues()
+        tasks.put("MD5",md5)
+        tasks.insertTo("tasks")
+        val id = Settings.dataBase.rawQuery("select id from tasks where MD5='${md5}'").apply { this.moveToFirst() }.getInt(0)
+        val task = ContentValues()
+        task.put("id",id)
+        task.put("url",url)
+        task.put("css",css)
+        task.put("name",name)
+        if (checkBox.isChecked)
+            task.put("attr",attrKey)
+        task.insertTo("task")
         this.finish()
     }
 }
