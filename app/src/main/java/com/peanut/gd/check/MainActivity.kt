@@ -1,7 +1,7 @@
 package com.peanut.gd.check
 
-import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.work.Constraints
 import androidx.work.NetworkType
@@ -25,6 +25,7 @@ class MainActivity : CMDActivity() {
                 "l", "list" -> l()
                 "s", "shutdown" -> s()
                 "st", "start" -> st()
+                "o", "open" -> o(cmds[1])
                 else -> printE("Unknown Command:${cmds[0]}")
             }
         } catch (e: Exception) {
@@ -73,15 +74,28 @@ class MainActivity : CMDActivity() {
         val cursor =
             Settings.dataBase.rawQuery("select tasks.id,task.name,tasks.MD5 from tasks,task where tasks.id=task.id")
         printI("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        printI("|ID   |Name            |MD5                             |")
+        printI("|ID   |Name                           |MD5              |")
         printI("|-------------------------------------------------------|")
         while (cursor.moveToNext())
             printI(
                 "|${cursor.getInt(0).toString().toFixedLengthString(5)}|${
-                    cursor.getString(1).toFixedLengthString(16)
-                }|${cursor.getString(2).toFixedLengthString(32)}|"
+                    cursor.getString(1).toFixedLengthString(31)
+                }|${cursor.getString(2).toFixedLengthString(17)}|"
             )
         printI("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    }
+
+    private fun o(id:String){
+        try {
+            val url = Settings.dataBase.rawQuery("select url from task where task.id=$id").apply { this.moveToNext() }.getString(0)
+            val intent = Intent()
+            intent.action = "android.intent.action.VIEW"
+            val uri = Uri.parse(url)
+            intent.data = uri
+            startActivity(intent)
+        }catch (e:Exception){
+            printE("open error->"+e.localizedMessage)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,43 +118,9 @@ class MainActivity : CMDActivity() {
         printV("    l,list          Lists current queue tasks.")
         printV("    r,restart       Restart periodic check-service.")
         printV("    re,remove       Remove a old Tasks.")
+        printV("    o,open          Open a task`s url.")
         printV("    s,shutdown      Shutdown periodic check-service.")
         printV("    st,start        Start periodic check-service.")
         printV("")
-    }
-
-    @SuppressLint("InflateParams")
-    private fun refresh() {
-//            view.findViewById<ConstraintLayout>(R.id.c).setOnLongClickListener {
-//                SettingManager.setValue(key = "jobs", value = sets.minus(set))
-//                Snackbar.make(panel, "已取消该监听", Snackbar.LENGTH_LONG).setAction("撤销") {
-//                    SettingManager.setValue(key = "jobs", value = sets)
-//                    refresh()
-//                }.show()
-//                refresh()
-//                true
-//            }
-//            view.findViewById<ConstraintLayout>(R.id.c).setOnClickListener {
-//                try {
-//                    val intent = Intent()
-//                    intent.action = "android.intent.action.VIEW"
-//                    val uri = Uri.parse(SettingManager.getValue(set+"url",defaultValue = "url"))
-//                    intent.data = uri
-//                    startActivity(intent)
-//                }catch (e:Exception){
-//                    Toast.makeText(this,e.localizedMessage,Toast.LENGTH_SHORT).show()
-//                }
-//            }
-//            val time = SettingManager.getValue(set + "Time", defaultValue = "0").toLong()
-//            val date1 = Date()
-//            date1.time = time
-//            view.findViewById<TextView>(R.id.state).text = SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(date1)
-//            panel.addView(view)
-//        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        refresh()
     }
 }

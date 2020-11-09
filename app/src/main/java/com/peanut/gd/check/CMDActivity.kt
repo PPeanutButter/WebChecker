@@ -46,18 +46,30 @@ open class CMDActivity : Activity(){
             this.textSize = 12f
             this.setTextColor(c)
             this.setTextIsSelectable(true)
-            this.typeface = Typeface.createFromAsset(this@CMDActivity.assets,"ubuntu_mono.ttf")
+            this.typeface = Typeface.createFromAsset(this@CMDActivity.assets, "ubuntu_mono.ttf")
         }, li.childCount - 1)
     }
 
-    fun String.toFixedLengthString(l:Int?):String{
+    fun String.toFixedLengthString(l: Int?):String{
         if (l == null)
             return this
-        return if (this.length>l)
-            this.substring(0,l-3)+"..."
+        return if (this.realLength()>l)
+            this.substring(0, l - 3)+"..."
         else {
-            this+" ".repeat(l-this.length)
+            this+" ".repeat(l - this.realLength())
         }
+    }
+
+    private fun String.realLength(): Int {
+        var valueLength = 0
+        for (i in this) {
+            valueLength += if (i.toString().matches(Regex("[\u4e00-\u9fa5]"))) {
+                2
+            } else {
+                1
+            }
+        }
+        return valueLength
     }
 }
 
